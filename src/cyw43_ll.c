@@ -43,7 +43,9 @@
 #include "cyw43_internal.h"
 #include "cyw43_stats.h"
 
+# todo fix
 #include CYW43_WIFI_NVRAM_INCLUDE_FILE
+#include CYW43_WIFI_FIRMWARE_INCLUDE_FILE
 
 #define F1_OVERFLOW_CHANGE 0
 
