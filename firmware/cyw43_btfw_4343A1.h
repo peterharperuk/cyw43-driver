@@ -2932,4 +2932,7 @@ const unsigned char cyw43_btfw_4343A1[] CYW43_RESOURCE_ATTRIBUTE = {
   0x00, 0x4c, 0xfc, 0x0b, 0xaa, 0x9d, 0x21, 0x00, 0x14, 0x08, 0x0d, 0x00,
   0xfe, 0x00, 0x00, 0x4e, 0xfc, 0x04, 0xff, 0xff, 0xff, 0xff
 };
-const unsigned int cyw43_btfw_4343A1_len = 35182;
+static const unsigned int cyw43_btfw_4343A1_len = 35182;
+#define CYW43_BT_FW_LEN (35182)
+const unsigned char *bt_fw_data = &cyw43_btfw_4343A1[0];
+const unsigned int bt_fw_data_len = cyw43_btfw_4343A1_len;

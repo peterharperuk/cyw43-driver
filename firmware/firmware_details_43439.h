@@ -31,47 +31,40 @@
  * options please email contact@georgerobotics.com.au.
  */
 
-#ifndef WIFI_FIRMWARE_43439_H
-#define WIFI_FIRMWARE_43439_H
+#ifndef FIRMWARE_DETAILS_43439_H
+#define FIRMWARE_DETAILS_43439_H
 
+#include CYW43_CHIPSET_FIRMWARE_INCLUDE_FILE // actually just wifi firmware
 #include CYW43_WIFI_NVRAM_INCLUDE_FILE
-#include "wifi_firmware.h"
 
-#if CYW43_USE_SPI
-#define CYW43_FW_LEN (224190) // 43439A0.bin
-#define CYW43_CLM_LEN (984) // 43439_raspberrypi_picow_v5_220624.clm_blob
-
-extern const uint8_t fw_43439A0_7_95_49_00_combined_start[];
-extern const uint8_t fw_43439A0_7_95_49_00_combined_end[];
-#define CYW43_FIRMWARE_START fw_43439A0_7_95_49_00_combined_start
-#define CYW43_FIRMWARE_END fw_43439A0_7_95_49_00_combined_end
-
-#elif !CYW43_USE_SPI
-#define CYW43_FW_LEN (383110) // 7.45.98.50
-extern const uint8_t fw_4343WA1_7_45_98_50_start[];
-extern const uint8_t fw_4343WA1_7_45_98_50_end[];
-#define CYW43_CLM_LEN (7222)
-#define CYW43_FIRMWARE_START fw_4343WA1_7_45_98_50_start
-#define CYW43_FIRMWARE_END fw_4343WA1_7_45_98_50_end
+#if CYW43_ENABLE_BLUETOOTH
+#include CYW43_BT_FIRMWARE_INCLUDE_FILE
 #endif
+
+#include "firmware_defs.h"
 
 /*!
  * \brief Get the firmware binary details
  *
  * This method returns the details of the firmware binary
  *
- * \param fw_details Structure to be filled with firmware details
- * \see cyw43_wifi_firmware_details_t
+ * \param firmware_details Structure to be filled with firmware details
+ * \see cyw43_firmware_details_t
  */
-static inline void cyw43_wifi_firmware_details(cyw43_wifi_firmware_details_t *fw_details) {
-    fw_details->raw_size = CYW43_FIRMWARE_END - CYW43_FIRMWARE_START;
-    fw_details->raw_data = CYW43_FIRMWARE_START;
-    fw_details->fw_size = CYW43_FW_LEN;
-    fw_details->clm_size = CYW43_CLM_LEN,
-    fw_details->fw_addr = CYW43_FIRMWARE_START;
-    fw_details->clm_addr = CYW43_FIRMWARE_START + ((CYW43_FW_LEN + 511) & ~511);
-    fw_details->wifi_nvram_len = (sizeof(wifi_nvram_4343) + 63) & ~63;
-    fw_details->wifi_nvram_data = wifi_nvram_4343;
+static inline void cyw43_firmware_details(cyw43_firmware_details_t *firmware_details) {
+    firmware_details->raw_wifi_fw_size = fw_data_len;
+    firmware_details->raw_data = fw_data;
+    firmware_details->wifi_fw_size = CYW43_WIFI_FW_LEN;
+    firmware_details->clm_size = CYW43_CLM_LEN,
+    firmware_details->wifi_fw_addr = fw_data;
+    firmware_details->clm_addr = fw_data + ((CYW43_WIFI_FW_LEN + 511) & ~511);
+    firmware_details->wifi_nvram_len = (sizeof(wifi_nvram_4343) + 63) & ~63;
+    firmware_details->wifi_nvram_data = wifi_nvram_4343;
+    #if CYW43_ENABLE_BLUETOOTH
+    firmware_details->raw_bt_fw_size = bt_fw_data_len;
+    firmware_details->bt_fw_size = CYW43_BT_FW_LEN;
+    firmware_details->bt_fw_addr = bt_fw_data;
+    #endif
 }
 
 /*!
@@ -80,25 +73,29 @@ static inline void cyw43_wifi_firmware_details(cyw43_wifi_firmware_details_t *fw
  * This method returns pointers to functions that load firmware
  *
  * \return structure that contains functions that load firmware
- * \see cyw43_wifi_firmware_funcs_t
+ * \see cyw43_firmware_funcs_t
  */
-static inline const cyw43_wifi_firmware_funcs_t *wifi_fw_funcs(void) {
-    static const cyw43_wifi_firmware_funcs_t funcs = {
-        #if CYW43_DECOMPRESS_FIRMWARE
-        .start = wifi_firmware_start_decompress,
-        .get_fw = wifi_firmware_get_compressed,
-        .get_nvram = wifi_firmware_get_embedded, // not compressed
-        .copy_clm = wifi_firmware_copy_compressed,
-        .end = cyw43_decompress_firmware_end,
+static inline const cyw43_firmware_funcs_t *cyw43_firmware_funcs(void) {
+    static const cyw43_firmware_funcs_t firmware_funcs = {
+        #if CYW43_ENABLE_FIRMWARE_COMPRESSION
+        .start_wifi_fw = cyw43_wifi_firmware_decompress_start,
+        .start_bt_fw = cyw43_bt_firmware_decompress_start,
+        .get_wifi_fw = cyw43_firmware_decompress_get,
+        .get_bt_fw = cyw43_firmware_decompress_get,
+        .get_nvram = cyw43_firmware_embedded_get, // not compressed
+        .copy_clm = cyw43_firmware_decompress_copy,
+        .end = cyw43_firmware_decompress_end,
         #else
-        .start = NULL,
-        .get_fw = wifi_firmware_get_embedded,
-        .get_nvram = wifi_firmware_get_embedded,
-        .copy_clm = wifi_firmware_copy_embedded,
+        .start_wifi_fw = NULL,
+        .start_bt_fw = NULL,
+        .get_wifi_fw = cyw43_firmware_embedded_get,
+        .get_bt_fw = cyw43_firmware_embedded_get,
+        .get_nvram = cyw43_firmware_embedded_get,
+        .copy_clm = cyw43_firmware_copy_embedded,
         .end = NULL,
         #endif
     };
-    return &funcs;
+    return &firmware_funcs;
 }
 
 #endif

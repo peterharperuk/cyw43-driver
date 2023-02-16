@@ -31,40 +31,45 @@
  * options please email contact@georgerobotics.com.au.
  */
 
-#ifndef WIFI_FIRMWARE_H
-#define WIFI_FIRMWARE_H
-
-#if CYW43_DECOMPRESS_FIRMWARE
-#include "cyw43_decompress_firmware.h"
-#endif
+#ifndef FIRMWARE_DEFS_H
+#define FIRMWARE_DEFS_H
 
 /*!
- * \brief Structure to store wifi firmware details
+ * \brief Structure to store firmware details
  */
 //!\{
-typedef struct cyw43_wifi_firmware_details {
-    size_t raw_size;            ///< Size in bytes of the firmware data before extraction
-    const uint8_t *raw_data;    ///< Pointer to the firmware data before extraction
-    size_t fw_size;             ///< Size of the firmware in bytes after extraction
-    size_t clm_size;            ///< Size of the clm in bytes after extraction
-    const uint8_t *fw_addr;     ///< Pointer to the firmware in the binary
-    const uint8_t *clm_addr;    ///< Pointer to the clm in the binary
+typedef struct cyw43_firmware_details {
+    size_t raw_wifi_fw_size;    ///< Size in bytes of the wifi firmware data before extraction
+    const uint8_t *raw_data;    ///< Pointer to the wifi firmware data before extraction
+    size_t wifi_fw_size;        ///< Size of the wifi firmware in bytes after extraction
+    size_t clm_size;            ///< Size of the clm blob in bytes after extraction
+    const uint8_t *wifi_fw_addr;///< Pointer to the raw wifi firmware
+    const uint8_t *clm_addr;    ///< Pointer to the raw clm blob in uncompressed firmware
     size_t wifi_nvram_len;      ///< Size of nvram data
     const uint8_t *wifi_nvram_data; ///< Pointer to nvram data
-} cyw43_wifi_firmware_details_t;
+    #if CYW43_ENABLE_BLUETOOTH
+    size_t raw_bt_fw_size;      ///< size of bluetooth firmware data before extraction
+    size_t bt_fw_size;          ///< size of bluetooth firmware data after extraction
+    const uint8_t *bt_fw_addr;  ///< Pointer to the bluetooth firmware
+    #endif
+} cyw43_firmware_details_t;
 //!\}
+
+extern cyw43_firmware_details_t firmware_details;
 
 /*!
  * \brief Structure to hold function pointers for loading firmware
  */
 //!\{
-typedef struct cyw43_wifi_firmware_funcs {
-    int (*start)(const cyw43_wifi_firmware_details_t *fw_details); ///< start firmware loading
-    const uint8_t* (*get_fw)(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len); ///< get block of fw data
+typedef struct cyw43_firmware_funcs {
+    int (*start_wifi_fw)(const cyw43_firmware_details_t *fw_details); ///< start wifi firmware loading
+    int (*start_bt_fw)(const cyw43_firmware_details_t *fw_details); ///< start bt firmware loading
+    const uint8_t* (*get_wifi_fw)(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len); ///< get block of wifi firmware data
+    const uint8_t* (*get_bt_fw)(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len); ///< get block of bt firmware data
     const uint8_t* (*get_nvram)(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len); ///< get block of nvram data
-    int (*copy_clm)(uint8_t *dst, const uint8_t *src, uint32_t len); ///< get clm data
+    int (*copy_clm)(uint8_t *dst, const uint8_t *src, uint32_t len); ///< copy clm data
     void (*end)(void); ///< end firmware loading
-} cyw43_wifi_firmware_funcs_t;
+} cyw43_firmware_funcs_t;
 //!\}
 
 /*!
@@ -91,7 +96,7 @@ const uint8_t *wifi_firmware_get_storage(const uint8_t *addr, size_t sz_in, uint
  * \param buffer_len Length of temporary buffer in bytes
  * \return Requested firmware data
  */
-const uint8_t *wifi_firmware_get_embedded(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len);
+const uint8_t *cyw43_firmware_embedded_get(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len);
 
 /*!
  * \brief get a copy of firmware data embedded in the elf file binary
@@ -103,19 +108,29 @@ const uint8_t *wifi_firmware_get_embedded(const uint8_t *addr, size_t sz_in, uin
  * \param len Amount of data to be copied in bytes
  * \return >=0 on success or <0 on error
  */
-int wifi_firmware_copy_embedded(uint8_t *dst, const uint8_t *src, uint32_t len);
+int cyw43_firmware_copy_embedded(uint8_t *dst, const uint8_t *src, uint32_t len);
 
-#if CYW43_DECOMPRESS_FIRMWARE
 /*!
- * \brief Start firmware decompression process
+ * \brief Start wifi firmware decompression process
  *
  * Prepares and allocates resources needed to decompress firmware
  *
  * \param fw_details Details of the firmware
- * \see cyw43_wifi_firmware_details_t
+ * \see cyw43_firmware_details_t
  * \return >=0 on success or <0 on error
  */
-int wifi_firmware_start_decompress(const cyw43_wifi_firmware_details_t* fw_details);
+int cyw43_wifi_firmware_decompress_start(const cyw43_firmware_details_t* fw_details);
+
+/*!
+ * \brief Start bt firmware decompression process
+ *
+ * Prepares and allocates resources needed to decompress firmware
+ *
+ * \param fw_details Details of the firmware
+ * \see cyw43_firmware_details_t
+ * \return >=0 on success or <0 on error
+ */
+int cyw43_bt_firmware_decompress_start(const cyw43_firmware_details_t* fw_details);
 
 /*!
  * \brief get and decompress firmware data embedded in the elf file binary
@@ -128,7 +143,7 @@ int wifi_firmware_start_decompress(const cyw43_wifi_firmware_details_t* fw_detai
  * \param buffer_len Length of temporary buffer in bytes
  * \return Requested firmware data
  */
-const uint8_t *wifi_firmware_get_compressed(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len);
+const uint8_t *cyw43_firmware_decompress_get(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len);
 
 /*!
  * \brief Decompress the clm data embedded in the elf file binary and copy it to the supplied buffer
@@ -140,7 +155,14 @@ const uint8_t *wifi_firmware_get_compressed(const uint8_t *addr, size_t sz_in, u
  * \param len Amount of data required in bytes
  * \return >=0 on success or <0 on error
  */
-int wifi_firmware_copy_compressed(uint8_t *dst, const uint8_t *src, uint32_t len);
-#endif
+int cyw43_firmware_decompress_copy(uint8_t *dst, const uint8_t *src, uint32_t len);
+
+/*!
+ * \brief End firmware decompression process
+ *
+ * Frees resources used to decompress firmware
+ *
+ */
+void cyw43_firmware_decompress_end(void);
 
 #endif

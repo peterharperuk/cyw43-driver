@@ -31,36 +31,36 @@
  * options please email contact@georgerobotics.com.au.
  */
 
-#ifndef WIFI_FIRMWARE_COMPRESSION_H
-#define WIFI_FIRMWARE_COMPRESSION_H
+#ifndef CYW43_GZ_READ_H
+#define CYW43_GZ_READ_H
 
 /*!
- * \brief Start decompressing firmware
+ * \brief Start decompressing data
  *
- * This method prepares for decompressing firmware.
+ * This method prepares for decompressing data.
  *
- * \param raw_data The compressed firmware data
- * \param raw_size The size in bytes of the compressed firmware data
+ * \param raw_data The compressed data
+ * \param raw_size The size in bytes of the data
  * \return >0 on success, the uncompressed data size in bytes or <0 on error
  */
-int cyw43_decompress_firmware_start(const uint8_t *raw_data, size_t raw_size);
+int cyw43_gz_read_start(const uint8_t *raw_data, size_t raw_size);
 
 /*!
- * \brief Get the next block of firmware
+ * \brief Get the next block of uncompressed data
  *
- * This method returns the next block of firmware.
+ * This method returns the next block of uncompressed data.
  *
- * \param buffer Buffer to fill with firmware data
- * \param len Requested size of firmware data
+ * \param buffer Buffer to fill with uncompressed data
+ * \param len Requested size of uncompressed data
  * \return The amount of data returned in the buffer or <0 on error
  */
-int cyw43_decompress_firmware_next(uint8_t *buffer, size_t len);
+int cyw43_gz_read_next(uint8_t *buffer, size_t len);
 
 /*!
- * \brief Finish decompressing firmware
+ * \brief Finish decompressing data
  *
- * This method frees any resources used for decompressing firmware.
+ * This method frees any resources used for decompressing data.
  */
-void cyw43_decompress_firmware_end(void);
+void cyw43_gz_read_end(void);
 
 #endif

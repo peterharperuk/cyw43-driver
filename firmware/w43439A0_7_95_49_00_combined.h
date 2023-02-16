@@ -18770,6 +18770,8 @@ static const unsigned char w43439A0_7_95_49_00_combined[] CYW43_RESOURCE_ATTRIBU
   0x08, 0x09, 0x0a, 0x0b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xaf, 0xa9, 0x00, 0x00
 };
+static const unsigned int w43439A0_7_95_49_00_combined_len = 225240;
 #define CYW43_WIFI_FW_LEN (224190) // launch_firmware/43439A0.bin
 #define CYW43_CLM_LEN (984) // launch_tuning/43439_raspberrypi_picow_v5_220624.clm_blob
-const uintptr_t fw_data = (uintptr_t)&w43439A0_7_95_49_00_combined[0];
+const unsigned char *fw_data = &w43439A0_7_95_49_00_combined[0];
+const unsigned int fw_data_len = w43439A0_7_95_49_00_combined_len;
