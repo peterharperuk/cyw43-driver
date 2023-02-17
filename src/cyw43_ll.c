@@ -539,50 +539,47 @@ static bool verify_firmware(cyw43_int_t *self, size_t len, const uint8_t *source
 #endif
 
 
-static int cyw43_download_firmware(cyw43_int_t *self) {
+static int cyw43_download_firmware(cyw43_int_t *self, const cyw43_firmware_details_t *firmware_details) {
     // round up len to simplify download
-    size_t len = (firmware_details.wifi_fw_size + 255) & ~255;
-
+    const size_t padded_len = ALIGN_UINT(firmware_details->wifi_fw_size, 512);
+    const size_t check_size = 800; // to check for valid firmware
+    static_assert(sizeof(self->spid_buf) > (511 + check_size));
     CYW43_VDEBUG("download %lu firmware bytes\n", (uint32_t)len);
 
     uint32_t t_start = cyw43_hal_ticks_us();
-    uint8_t check_buffer[800]; // for saving the end of the firmware
-    size_t check_done = 0;
-    size_t check_pos = firmware_details.wifi_fw_size - sizeof(check_buffer);
-
-    for (size_t offset = 0; offset < len; offset += sizeof(self->spid_buf)) {
+    size_t offset = 0;
+    const size_t size_before_check = firmware_details->wifi_fw_size - check_size;
+    while(offset < size_before_check) {
         CYW43_EVENT_POLL_HOOK;
         size_t sz = sizeof(self->spid_buf);
-        if (offset + sz > len) {
-            sz = len - offset;
+        if ((offset + sz) > size_before_check) {
+            sz = size_before_check - offset;
         }
-
         // Load a block of firmware data
-        const uint8_t *src = cyw43_firmware_funcs()->get_wifi_fw(firmware_details.wifi_fw_addr + offset, sz, self->spid_buf, sizeof(self->spid_buf));
-
-        // Save the end of the firmware
-        if (offset + sz > check_pos && check_done < sizeof(check_buffer)) {
-            const size_t check_offset = offset < check_pos ? check_pos - offset : 0;
-            const size_t check_sz = MIN(sizeof(check_buffer) - check_done, sz - check_offset);
-            memcpy(check_buffer + check_done, src + check_offset, check_sz);
-            check_done += check_sz;
-            check_pos += check_sz;
-        }
+        const uint8_t *src = cyw43_firmware_funcs()->get_wifi_fw(firmware_details->wifi_fw_addr + offset, sz, self->spid_buf, sizeof(self->spid_buf));
         int ret = cyw43_firmware_write(self, offset, sz, src);
         if (ret < 0) return ret;
+        offset += sz;
     }
 
+    // Now load and program the end of the firmware
+    CYW43_EVENT_POLL_HOOK;
+    const uint8_t *src = cyw43_firmware_funcs()->get_wifi_fw(firmware_details->wifi_fw_addr + offset, padded_len - size_before_check, self->spid_buf, sizeof(self->spid_buf));
+    int ret = cyw43_firmware_write(self, offset, check_size, src);
+    if (ret < 0) return ret;
+
     // check that firmware looks correct by checking we can find version info
-    size_t fw_end = sizeof(check_buffer) - 16; // skip DVID trailer
+    const size_t fw_end = check_size - 16; // skip DVID trailer
 
     // get length of trailer
-    size_t trail_len = check_buffer[fw_end - 2] | check_buffer[fw_end - 1] << 8;
+    size_t trail_len = src[fw_end - 2] | src[fw_end - 1] << 8;
+    assert(trail_len > 0);
 
     // Search for version
     int found = -1;
-    if (trail_len < 500 && check_buffer[fw_end - 3] == '\0') {
+    if (trail_len < 500 && src[fw_end - 3] == '\0') {
         for (int i = 80; i < (int)trail_len; ++i) {
-            if (strncmp((const char *)&check_buffer[fw_end - 3 - i], "Version: ", 9) == 0) {
+            if (strncmp((const char *)&src[fw_end - 3 - i], "Version: ", 9) == 0) {
                 found = i;
                 break;
             }
@@ -591,11 +588,12 @@ static int cyw43_download_firmware(cyw43_int_t *self) {
 
     if (found == -1) {
         CYW43_WARN("could not find valid firmware\n");
+        assert(false);
         return CYW43_FAIL_FAST_CHECK(-CYW43_EIO);
     }
 
     // print wifi firmware version info
-    CYW43_DEBUG("%s\n", &check_buffer[fw_end - 3 - found]);
+    CYW43_DEBUG("%s\n", &src[fw_end - 3 - found]);
 
     #if CYW43_VERBOSE_DEBUG
     uint32_t t_end = cyw43_hal_ticks_us();
