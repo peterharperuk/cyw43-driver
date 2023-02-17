@@ -12181,5 +12181,5 @@ static const unsigned char wb43439A0_7_95_49_00_combined_gz[] = {
 static const unsigned int wb43439A0_7_95_49_00_combined_gz_len = 146135;
 #define CYW43_WIFI_FW_LEN (231077) // wb_firmware_jan2023/43439A0.bin
 #define CYW43_CLM_LEN (984) // launch_tuning/43439_raspberrypi_picow_v5_220624.clm_blob
-const unsigned char *fw_data = &wb43439A0_7_95_49_00_combined_gz[0];
-const unsigned int fw_data_len = wb43439A0_7_95_49_00_combined_gz_len;
+#define CYW43_RAW_WIFI_FW_DATA (wb43439A0_7_95_49_00_combined_gz)
+#define CYW43_RAW_WIFI_FW_DATA_LEN (wb43439A0_7_95_49_00_combined_gz_len)

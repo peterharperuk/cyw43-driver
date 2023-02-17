@@ -31,8 +31,8 @@
  * options please email contact@georgerobotics.com.au.
  */
 
-#ifndef FIRMWARE_DEFS_H
-#define FIRMWARE_DEFS_H
+#ifndef CYW43_FIRMWARE_DEFS_H
+#define CYW43_FIRMWARE_DEFS_H
 
 /*!
  * \brief Structure to store firmware details
@@ -55,8 +55,6 @@ typedef struct cyw43_firmware_details {
 } cyw43_firmware_details_t;
 //!\}
 
-extern cyw43_firmware_details_t firmware_details;
-
 /*!
  * \brief Structure to hold function pointers for loading firmware
  */
@@ -67,102 +65,28 @@ typedef struct cyw43_firmware_funcs {
     const uint8_t* (*get_wifi_fw)(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len); ///< get block of wifi firmware data
     const uint8_t* (*get_bt_fw)(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len); ///< get block of bt firmware data
     const uint8_t* (*get_nvram)(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len); ///< get block of nvram data
-    int (*copy_clm)(uint8_t *dst, const uint8_t *src, uint32_t len); ///< copy clm data
+    const uint8_t* (*get_clm)(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len); ///< get block of clm data
     void (*end)(void); ///< end firmware loading
 } cyw43_firmware_funcs_t;
 //!\}
 
 /*!
- * \brief get firmware data from flash
+ * \brief Get the firmware binary details
  *
- * Loads firmware data from flash and returns a pointer to it
+ * This method returns the details of the firmware binaries
  *
- * \param addr Address of firmware data required
- * \param sz_in Amount of firmware data required in bytes
- * \param buffer Temporary buffer that can be used to load and return firmware data
- * \param buffer_len Length of temporary buffer in bytes
- * \return Requested firmware data
- */
-const uint8_t *wifi_firmware_get_storage(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len);
-
-/*!
- * \brief get firmware data embedded in the elf file binary
- *
- * Loads firmware data from the elf file and returns a pointer to it
- *
- * \param addr Address of firmware data required
- * \param sz_in Amount of firmware data required in bytes
- * \param buffer Temporary buffer that can be used to load and return firmware data
- * \param buffer_len Length of temporary buffer in bytes
- * \return Requested firmware data
- */
-const uint8_t *cyw43_firmware_embedded_get(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len);
-
-/*!
- * \brief get a copy of firmware data embedded in the elf file binary
- *
- * Loads firmware and copies it to the supplied buffer
- *
- * \param dst Required destination of firmare data
- * \param src Source address of the firmware data
- * \param len Amount of data to be copied in bytes
- * \return >=0 on success or <0 on error
- */
-int cyw43_firmware_copy_embedded(uint8_t *dst, const uint8_t *src, uint32_t len);
-
-/*!
- * \brief Start wifi firmware decompression process
- *
- * Prepares and allocates resources needed to decompress firmware
- *
- * \param fw_details Details of the firmware
  * \see cyw43_firmware_details_t
- * \return >=0 on success or <0 on error
  */
-int cyw43_wifi_firmware_decompress_start(const cyw43_firmware_details_t* fw_details);
+const cyw43_firmware_details_t *cyw43_firmware_details(void);
 
 /*!
- * \brief Start bt firmware decompression process
+ * \brief Get the functions used to load firmware
  *
- * Prepares and allocates resources needed to decompress firmware
+ * This method returns pointers to functions that load firmware
  *
- * \param fw_details Details of the firmware
- * \see cyw43_firmware_details_t
- * \return >=0 on success or <0 on error
+ * \return structure that contains functions that load firmware
+ * \see cyw43_firmware_funcs_t
  */
-int cyw43_bt_firmware_decompress_start(const cyw43_firmware_details_t* fw_details);
-
-/*!
- * \brief get and decompress firmware data embedded in the elf file binary
- *
- * Loads firmware data from the elf file, decompressed it and returns a pointer to it
- *
- * \param addr Address of firmware data required
- * \param sz_in Amount of firmware data required in bytes
- * \param buffer Temporary buffer that can be used to load and return firmware data
- * \param buffer_len Length of temporary buffer in bytes
- * \return Requested firmware data
- */
-const uint8_t *cyw43_firmware_decompress_get(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len);
-
-/*!
- * \brief Decompress the clm data embedded in the elf file binary and copy it to the supplied buffer
- *
- * Loads clm data from flash, decompresses it and copies it to the supplied buffer
- *
- * \param dst Destination of clm data
- * \param src Source address of the clm data
- * \param len Amount of data required in bytes
- * \return >=0 on success or <0 on error
- */
-int cyw43_firmware_decompress_copy(uint8_t *dst, const uint8_t *src, uint32_t len);
-
-/*!
- * \brief End firmware decompression process
- *
- * Frees resources used to decompress firmware
- *
- */
-void cyw43_firmware_decompress_end(void);
+const cyw43_firmware_funcs_t *cyw43_firmware_funcs(void);
 
 #endif

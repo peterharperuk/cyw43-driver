@@ -21708,5 +21708,5 @@ static const unsigned char w4343WA1_7_45_98_50_combined_gz[] = {
 static const unsigned int w4343WA1_7_45_98_50_combined_gz_len = 260457;
 #define CYW43_WIFI_FW_LEN (383110) // a1_firmware/43439A1.bin
 #define CYW43_CLM_LEN (7222) // a1_firmware/43439A1.clm_blob
-const unsigned char *fw_data = &w4343WA1_7_45_98_50_combined_gz[0];
-const unsigned int fw_data_len = w4343WA1_7_45_98_50_combined_gz_len;
+#define CYW43_RAW_WIFI_FW_DATA (w4343WA1_7_45_98_50_combined_gz)
+#define CYW43_RAW_WIFI_FW_DATA_LEN (w4343WA1_7_45_98_50_combined_gz_len)

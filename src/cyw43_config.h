@@ -104,11 +104,6 @@
 #endif
 #endif
 
-// This include should define cyw43_firmware_details and cyw43_firmware_funcs
-#ifndef CYW43_FIRMWARE_DETAILS_INCLUDE_FILE
-#define CYW43_FIRMWARE_DETAILS_INCLUDE_FILE "firmware/firmware_details_43439.h"
-#endif
-
 // Timing and timeout configuration.
 
 #ifndef CYW43_IOCTL_TIMEOUT_US
