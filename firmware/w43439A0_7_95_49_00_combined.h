@@ -18773,5 +18773,5 @@ static const unsigned char w43439A0_7_95_49_00_combined[] CYW43_RESOURCE_ATTRIBU
 static const unsigned int w43439A0_7_95_49_00_combined_len = 225240;
 #define CYW43_WIFI_FW_LEN (224190) // launch_firmware/43439A0.bin
 #define CYW43_CLM_LEN (984) // launch_tuning/43439_raspberrypi_picow_v5_220624.clm_blob
-#define CYW43_RAW_WIFI_FW_DATA (w43439A0_7_95_49_00_combined)
-#define CYW43_RAW_WIFI_FW_DATA_LEN (w43439A0_7_95_49_00_combined_len)
+#define CYW43_WIFI_FW_ADDR (w43439A0_7_95_49_00_combined)
+#define CYW43_RAW_WIFI_FW_LEN (w43439A0_7_95_49_00_combined_len)

@@ -358,5 +358,5 @@ static const unsigned char cyw43_btfw_43439_gz[] = {
 };
 static const unsigned int cyw43_btfw_43439_gz_len = 4262;
 #define CYW43_BT_FW_LEN (6164)
-#define CYW43_RAW_BT_FW_DATA (cyw43_btfw_43439_gz)
-#define CYW43_RAW_BT_FW_DATA_LEN (cyw43_btfw_43439_gz_len)
+#define CYW43_BT_FW_ADDR (cyw43_btfw_43439_gz)
+#define CYW43_RAW_BT_FW_LEN (cyw43_btfw_43439_gz_len)

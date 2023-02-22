@@ -192,3 +192,8 @@
 #ifndef CYW43_DEFAULT_IP_DNS
 #define CYW43_DEFAULT_IP_DNS LWIP_MAKEU32(8, 8, 8, 8)
 #endif
+
+// Flash block size
+#ifndef CYW43_FLASH_BLOCK_SIZE
+#define CYW43_FLASH_BLOCK_SIZE (512)
+#endif
