@@ -197,3 +197,11 @@
 #ifndef CYW43_FLASH_BLOCK_SIZE
 #define CYW43_FLASH_BLOCK_SIZE (512)
 #endif
+
+#ifndef cyw43_get_firmware_funcs
+#if CYW43_ENABLE_FIRMWARE_COMPRESSION
+#define cyw43_get_firmware_funcs cyw43_get_firmware_funcs_compressed
+#else
+#define cyw43_get_firmware_funcs cyw43_get_firmware_funcs_uncompressed
+#endif
+#endif

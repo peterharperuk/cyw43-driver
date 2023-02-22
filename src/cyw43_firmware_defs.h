@@ -39,35 +39,37 @@
  */
 //!\{
 typedef struct cyw43_firmware_details {
-    size_t raw_wifi_fw_size;    ///< Size in bytes of the combined wifi firmware data before extraction
-    size_t wifi_fw_size;        ///< Size of the wifi firmware in bytes after extraction
-    size_t clm_size;            ///< Size of the clm blob in bytes after extraction
+    size_t raw_wifi_fw_len;     ///< Size in bytes of the combined wifi firmware data before extraction
+    size_t wifi_fw_len;         ///< Size of the wifi firmware in bytes after extraction
+    size_t clm_len;             ///< Size of the clm blob in bytes after extraction
     const uint8_t *wifi_fw_addr;///< Pointer to the raw wifi firmware
     const uint8_t *clm_addr;    ///< Pointer to the raw clm blob in uncompressed firmware
     size_t wifi_nvram_len;      ///< Size of nvram data
     const uint8_t *wifi_nvram_addr; ///< Pointer to nvram data
     #if CYW43_ENABLE_BLUETOOTH
-    size_t raw_bt_fw_size;      ///< size of bluetooth firmware data before extraction
-    size_t bt_fw_size;          ///< size of bluetooth firmware data after extraction
+    size_t raw_bt_fw_len;       ///< size of bluetooth firmware data before extraction
+    size_t bt_fw_len;           ///< size of bluetooth firmware data after extraction
     const uint8_t *bt_fw_addr;  ///< Pointer to the bluetooth firmware
     #endif
 } cyw43_firmware_details_t;
 //!\}
 
+#define CYW43_FLASH_FIRMWARE_MARKER 0x43593433
+
 /*!
- * \brief Structure to store firmware details in flash
+ * \brief Structure to store firmware details in flash. This should be stored in flash at page CYW43_FIRMWARE_FLASH_BLOCK
  */
 //!\{
 typedef struct cyw43_flash_firmware_details {
+    uint32_t marker;            ///< The value CYW43_FLASH_FIRMWARE_MARKER
     uint32_t version;           ///< Structure version;
     uint32_t xip_flash_offset;  ///< XIP offset of start of firmware
-    uint32_t flags;             ///< 0x1 = firmware is compressed
-    uint32_t raw_wifi_fw_size;  ///< Size in bytes of the combined wifi firmware data before extraction
-    uint32_t wifi_fw_size;      ///< Size of the wifi firmware in bytes after extraction
-    uint32_t clm_size;          ///< Size of the clm blob in bytes after extraction
+    uint32_t raw_wifi_fw_len;   ///< Size in bytes of the combined wifi firmware data before extraction
+    uint32_t wifi_fw_len;       ///< Size of the wifi firmware in bytes after extraction
+    uint32_t clm_len;           ///< Size of the clm blob in bytes after extraction
     uint32_t wifi_nvram_len;    ///< Size of nvram data
-    uint32_t raw_bt_fw_size;    ///< size of bluetooth firmware data before extraction
-    uint32_t bt_fw_size;        ///< size of bluetooth firmware data after extraction
+    uint32_t raw_bt_fw_len;     ///< size of bluetooth firmware data before extraction
+    uint32_t bt_fw_len;         ///< size of bluetooth firmware data after extraction
 } cyw43_flash_firmware_details_t;
 //!\}
 
@@ -76,6 +78,7 @@ typedef struct cyw43_flash_firmware_details {
  */
 //!\{
 typedef struct cyw43_firmware_funcs {
+    const cyw43_firmware_details_t* (*firmware_details)(void); ///< get wifi firmware details
     int (*start_wifi_fw)(const cyw43_firmware_details_t *fw_details); ///< start wifi firmware loading
     int (*start_bt_fw)(const cyw43_firmware_details_t *fw_details); ///< start bt firmware loading
     const uint8_t* (*get_wifi_fw)(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len); ///< get block of wifi firmware data
@@ -87,21 +90,12 @@ typedef struct cyw43_firmware_funcs {
 //!\}
 
 /*!
- * \brief Get the firmware details
- *
- * This method returns the details of the firmware binaries
- *
- * \param details A pointer to the firmware details to be populated
- */
-void cyw43_firmware_details(cyw43_firmware_details_t *details);
-
-/*!
  * \brief Get the functions used to load firmware
  *
  * This method returns pointers to functions that load firmware
  *
  * \return structure that contains functions that load firmware
  */
-const cyw43_firmware_funcs_t *cyw43_firmware_funcs(void);
+const cyw43_firmware_funcs_t *cyw43_get_firmware_funcs(void);
 
 #endif
