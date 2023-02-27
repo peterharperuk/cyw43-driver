@@ -51,10 +51,10 @@ int cyw43_gz_read_start(const uint8_t *raw_data, size_t raw_size);
  * This method returns the next block of uncompressed data.
  *
  * \param buffer Buffer to fill with uncompressed data
- * \param len Requested size of uncompressed data
+ * \param sz Requested size of uncompressed data in bytes
  * \return The amount of data returned in the buffer or <0 on error
  */
-int cyw43_gz_read_next(uint8_t *buffer, size_t len);
+int cyw43_gz_read_next(uint8_t *buffer, size_t sz);
 
 /*!
  * \brief Finish decompressing data

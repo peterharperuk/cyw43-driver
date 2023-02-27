@@ -81,22 +81,22 @@ int cyw43_gz_read_start(const uint8_t *raw_data, size_t raw_size)
     return (int)uzlib->amount_left;
 }
 
-int cyw43_gz_read_next(uint8_t *buffer, size_t len)
+int cyw43_gz_read_next(uint8_t *buffer, size_t sz)
 {
     assert(uzlib->amount_left > 0);
     if (uzlib->amount_left <= 0) {
         return CYW43_DECOMPRESS_ERR_NO_MORE;
     }
-    const size_t chunk_len = uzlib->amount_left < len ? uzlib->amount_left : len;
+    const size_t chunk_sz = uzlib->amount_left < sz ? uzlib->amount_left : sz;
     uzlib->state.dest = buffer;
-    uzlib->state.dest_limit = uzlib->state.dest + chunk_len;
+    uzlib->state.dest_limit = uzlib->state.dest + chunk_sz;
     int res = uzlib_uncompress_chksum(&uzlib->state);
     assert(res == TINF_OK);
     if (res != TINF_OK) {
         return CYW43_DECOMPRESS_ERR_DECOMPRESS;
     }
-    uzlib->amount_left -= chunk_len;
-    return chunk_len;
+    uzlib->amount_left -= chunk_sz;
+    return chunk_sz;
 }
 
 void cyw43_gz_read_end(void)

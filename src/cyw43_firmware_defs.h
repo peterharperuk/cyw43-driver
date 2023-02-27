@@ -54,25 +54,6 @@ typedef struct cyw43_firmware_details {
 } cyw43_firmware_details_t;
 //!\}
 
-#define CYW43_FLASH_FIRMWARE_MARKER 0x43593433
-
-/*!
- * \brief Structure to store firmware details in flash. This should be stored in flash at page CYW43_FIRMWARE_FLASH_BLOCK
- */
-//!\{
-typedef struct cyw43_flash_firmware_details {
-    uint32_t marker;            ///< The value CYW43_FLASH_FIRMWARE_MARKER
-    uint32_t version;           ///< Structure version;
-    uint32_t xip_flash_offset;  ///< XIP offset of start of firmware
-    uint32_t raw_wifi_fw_len;   ///< Size in bytes of the combined wifi firmware data before extraction
-    uint32_t wifi_fw_len;       ///< Size of the wifi firmware in bytes after extraction
-    uint32_t clm_len;           ///< Size of the clm blob in bytes after extraction
-    uint32_t wifi_nvram_len;    ///< Size of nvram data
-    uint32_t raw_bt_fw_len;     ///< size of bluetooth firmware data before extraction
-    uint32_t bt_fw_len;         ///< size of bluetooth firmware data after extraction
-} cyw43_flash_firmware_details_t;
-//!\}
-
 /*!
  * \brief Structure to hold function pointers for loading firmware
  */
@@ -81,10 +62,10 @@ typedef struct cyw43_firmware_funcs {
     const cyw43_firmware_details_t* (*firmware_details)(void); ///< get wifi firmware details
     int (*start_wifi_fw)(const cyw43_firmware_details_t *fw_details); ///< start wifi firmware loading
     int (*start_bt_fw)(const cyw43_firmware_details_t *fw_details); ///< start bt firmware loading
-    const uint8_t* (*get_wifi_fw)(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len); ///< get block of wifi firmware data
-    const uint8_t* (*get_bt_fw)(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len); ///< get block of bt firmware data
-    const uint8_t* (*get_nvram)(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len); ///< get block of nvram data
-    const uint8_t* (*get_clm)(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len); ///< get block of clm data
+    const uint8_t* (*get_wifi_fw)(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_sz); ///< get block of wifi firmware data
+    const uint8_t* (*get_bt_fw)(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_sz); ///< get block of bt firmware data
+    const uint8_t* (*get_nvram)(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_sz); ///< get block of nvram data
+    const uint8_t* (*get_clm)(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_sz); ///< get block of clm data
     void (*end)(void); ///< end firmware loading
 } cyw43_firmware_funcs_t;
 //!\}
@@ -97,5 +78,58 @@ typedef struct cyw43_firmware_funcs {
  * \return structure that contains functions that load firmware
  */
 const cyw43_firmware_funcs_t *cyw43_get_firmware_funcs(void);
+
+/*!
+ * \brief Read an uncompressed firmware data
+ *
+ * This method reads uncompressed firmware data
+ *
+ * \param addr Address to start reading
+ * \param sz_in Amount data to read in bytes
+ * \param buffer Temporary buffer that can be used to read data into
+ * \param buffer_sz Size of buffer in bytes
+ * \return Pointer to data read
+ */
+const uint8_t *cyw43_read_uncompressed_firmware(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_sz);
+
+/*!
+ * \brief Start reading wifi firmware data
+ *
+ * This method starts the process of reading compressed wifi firmware
+ *
+ * \param fw Firmware details
+ * \return Zero on success or else an error code
+ */
+int cyw43_start_compressed_wifi_firmware(const cyw43_firmware_details_t* fw);
+
+/*!
+ * \brief Start reading bluetooth firmware data
+ *
+ * This method starts the process of reading compressed bluetooth firmware
+ *
+ * \param fw Firmware details
+ * \return Zero on success or else an error code
+ */
+int cyw43_start_compressed_bt_firmware(__unused const cyw43_firmware_details_t* fw);
+
+/*!
+ * \brief Read compressed firmware data
+ *
+ * This method reads compressed firmware data
+ *
+ * \param addr Address to start reading
+ * \param sz_in Amount data to read in bytes
+ * \param buffer Temporary buffer that can be used to read data into
+ * \param buffer_sz Size of buffer in bytes
+ * \return Pointer to data read
+ */
+const uint8_t *cyw43_read_compressed_firmware(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_sz);
+
+/*!
+ * \brief End reading compressed firmware data
+ *
+ * This method ends the process of reading compressed firmware
+ */
+void cyw43_end_compressed_firmware(void);
 
 #endif

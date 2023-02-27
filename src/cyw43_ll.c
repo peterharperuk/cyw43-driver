@@ -286,32 +286,6 @@ void cyw43_ll_deinit(cyw43_ll_t *self_in) {
 #include CYW43_BT_FIRMWARE_INCLUDE_FILE
 #endif
 
-#ifdef CYW43_FIRMWARE_FLASH_BLOCK
-static const cyw43_firmware_details_t* cyw43_firmware_details_func(void) {
-    static cyw43_firmware_details_t details;
-    if (details.raw_wifi_fw_len == 0) {
-        uint8_t flash_block[CYW43_FLASH_BLOCK_SIZE];
-        cyw43_flash_firmware_details_t *flash_details = (cyw43_flash_firmware_details_t*)flash_block;
-        int ret = storage_read_blocks(flash_block, CYW43_FIRMWARE_FLASH_BLOCK, 1);
-        assert(ret == 0 && flash_details->marker == CYW43_FLASH_FIRMWARE_MARKER && flash_details->version == 1);
-        if (ret == 0 && flash_details->marker == CYW43_FLASH_FIRMWARE_MARKER && flash_details->version == 1) {
-            details.raw_wifi_fw_len = flash_details->raw_wifi_fw_len;
-            details.wifi_fw_len = flash_details->wifi_fw_len;
-            details.clm_len = flash_details->clm_len;
-            details.wifi_nvram_len = flash_details->wifi_nvram_len;
-            details.wifi_fw_addr = (const uint8_t*)flash_details->xip_flash_offset;
-            details.clm_addr = details.wifi_fw_addr + ALIGN_UINT(flash_details->wifi_fw_len, CYW43_FLASH_BLOCK_SIZE);
-            details.wifi_nvram_addr = details.wifi_fw_addr + ALIGN_UINT(flash_details->raw_wifi_fw_len, CYW43_FLASH_BLOCK_SIZE);
-            #if CYW43_ENABLE_BLUETOOTH
-            details.raw_bt_fw_len = flash_details->raw_bt_fw_len;
-            details.bt_fw_len = flash_details->bt_fw_len;
-            details.bt_fw_addr = details.wifi_nvram_addr + ALIGN_UINT(flash_details->wifi_nvram_len, CYW43_FLASH_BLOCK_SIZE);
-            #endif
-        }
-    }
-    return &details;
-}
-#else
 static const cyw43_firmware_details_t* cyw43_firmware_details_func(void) {
     static const cyw43_firmware_details_t details = {
         .raw_wifi_fw_len = CYW43_RAW_WIFI_FW_LEN,
@@ -319,7 +293,7 @@ static const cyw43_firmware_details_t* cyw43_firmware_details_func(void) {
         .clm_len = CYW43_CLM_LEN,
         .wifi_fw_addr = CYW43_WIFI_FW_ADDR,
         .clm_addr = CYW43_WIFI_FW_ADDR + ALIGN_UINT(CYW43_WIFI_FW_LEN, CYW43_FLASH_BLOCK_SIZE),
-        .wifi_nvram_len = sizeof(wifi_nvram_4343), // todo: Was padded to 64 bytes which seems wrong
+        .wifi_nvram_len = sizeof(wifi_nvram_4343), // Was padded to 64 bytes which seems wrong
         .wifi_nvram_addr = wifi_nvram_4343,
         #if CYW43_ENABLE_BLUETOOTH
         .raw_bt_fw_len = CYW43_RAW_BT_FW_LEN,
@@ -329,13 +303,12 @@ static const cyw43_firmware_details_t* cyw43_firmware_details_func(void) {
     };
     return &details;
 }
-#endif
 
 // load uncompressed data
-static const uint8_t *cyw43_read_uncompressed_firmware(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len) {
+const uint8_t *cyw43_read_uncompressed_firmware(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_sz) {
     (void)sz_in;
     (void)buffer;
-    (void)buffer_len;
+    (void)buffer_sz;
     return addr;
 }
 
@@ -343,7 +316,7 @@ static const uint8_t *cyw43_read_uncompressed_firmware(const uint8_t *addr, size
 #include "cyw43_gz_read.h"
 
 // Start wifi firmware decompression process from compressed binary in elf
-static int cyw43_start_compressed_wifi_firmware(const cyw43_firmware_details_t* fw) {
+int cyw43_start_compressed_wifi_firmware(const cyw43_firmware_details_t* fw) {
     int result = cyw43_gz_read_start(fw->wifi_fw_addr, fw->raw_wifi_fw_len);
     if (result < 0) {
         CYW43_PRINTF("Error parsing header: %d\n", result);
@@ -357,7 +330,7 @@ static int cyw43_start_compressed_wifi_firmware(const cyw43_firmware_details_t* 
 }
 
 // Start wifi firmware decompression process from compressed binary in elf
-static int cyw43_start_compressed_bt_firmware(__unused const cyw43_firmware_details_t* fw) {
+int cyw43_start_compressed_bt_firmware(__unused const cyw43_firmware_details_t* fw) {
 #if CYW43_ENABLE_BLUETOOTH
     int result = cyw43_gz_read_start(fw->bt_fw_addr, fw->raw_bt_fw_len);
     if (result < 0) {
@@ -375,23 +348,23 @@ static int cyw43_start_compressed_bt_firmware(__unused const cyw43_firmware_deta
 }
 
 // Stream from binary compressed in elf
-static const uint8_t *cyw43_read_compressed_firmware(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_len) {
-    assert(sz_in <= buffer_len);
+const uint8_t *cyw43_read_compressed_firmware(const uint8_t *addr, size_t sz_in, uint8_t *buffer, size_t buffer_sz) {
+    assert(sz_in <= buffer_sz);
     (void)addr;
-    (void)buffer_len;
+    (void)buffer_sz;
     int sz_out = cyw43_gz_read_next(buffer, sz_in);
     assert(sz_out >= 0 && sz_out == (int)sz_in);
     (void)sz_out;
     return buffer;
 }
 
-static void cyw43_end_compressed_firmware(void) {
+void cyw43_end_compressed_firmware(void) {
     return cyw43_gz_read_end();
 }
 #endif // !CYW43_ENABLE_FIRMWARE_COMPRESSION
 
 #if CYW43_ENABLE_FIRMWARE_COMPRESSION
-const cyw43_firmware_funcs_t *cyw43_get_firmware_funcs_compressed(void) {
+const cyw43_firmware_funcs_t *cyw43_get_firmware_funcs_default(void) {
     static const cyw43_firmware_funcs_t funcs = {
         .firmware_details = cyw43_firmware_details_func,
         .start_wifi_fw = cyw43_start_compressed_wifi_firmware,
@@ -404,9 +377,8 @@ const cyw43_firmware_funcs_t *cyw43_get_firmware_funcs_compressed(void) {
     };
     return &funcs;
 }
-#endif
-
-const cyw43_firmware_funcs_t *cyw43_get_firmware_funcs_uncompressed(void) {
+#else
+const cyw43_firmware_funcs_t *cyw43_get_firmware_funcs_default(void) {
     static const cyw43_firmware_funcs_t funcs = {
         .firmware_details = cyw43_firmware_details_func,
         .start_wifi_fw = NULL,
@@ -419,6 +391,7 @@ const cyw43_firmware_funcs_t *cyw43_get_firmware_funcs_uncompressed(void) {
     };
     return &funcs;
 }
+#endif
 
 /*******************************************************************************/
 // low level read/write

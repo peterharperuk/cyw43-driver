@@ -199,9 +199,5 @@
 #endif
 
 #ifndef cyw43_get_firmware_funcs
-#if CYW43_ENABLE_FIRMWARE_COMPRESSION
-#define cyw43_get_firmware_funcs cyw43_get_firmware_funcs_compressed
-#else
-#define cyw43_get_firmware_funcs cyw43_get_firmware_funcs_uncompressed
-#endif
+#define cyw43_get_firmware_funcs cyw43_get_firmware_funcs_default
 #endif
