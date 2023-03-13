@@ -39,7 +39,7 @@
 #include "cyw43_gz_read.h"
 #include "cyw43.h"
 
-#define DICT_SIZE 8192 // Need to use tgzip from cyw43-firmware
+#define DICT_SIZE 4096
 typedef struct uzlib_data {
     uint8_t dict[DICT_SIZE];
     struct uzlib_uncomp state;
