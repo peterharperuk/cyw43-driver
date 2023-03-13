@@ -32581,3 +32581,4 @@ static const unsigned int w4343WA1_7_45_98_50_combined_len = 390912;
 #define CYW43_CLM_LEN (7222) // a1_firmware/43439A1.clm_blob
 #define CYW43_WIFI_FW_ADDR (w4343WA1_7_45_98_50_combined)
 #define CYW43_RAW_WIFI_FW_LEN (w4343WA1_7_45_98_50_combined_len)
+const uintptr_t fw_data = (uintptr_t)CYW43_WIFI_FW_ADDR;
