@@ -57,6 +57,7 @@
 #define WIFI_JOIN_STATE_FAIL    (0x0002)
 #define WIFI_JOIN_STATE_NONET   (0x0003)
 #define WIFI_JOIN_STATE_BADAUTH (0x0004)
+#define WIFI_JOIN_STATE_TOAUTH  (0x0005)
 #define WIFI_JOIN_STATE_AUTH    (0x0200)
 #define WIFI_JOIN_STATE_LINK    (0x0400)
 #define WIFI_JOIN_STATE_KEYED   (0x0800)
@@ -374,17 +375,21 @@ void cyw43_cb_process_async_event(void *cb_data, const cyw43_async_event_t *ev) 
             // No matching SSID found (could be out of range, or down)
         } else {
             // Other failure setting SSID
+            printf("failure setting SSID status %d reason %d\n", ev->status, ev->reason);
             self->wifi_join_state = WIFI_JOIN_STATE_FAIL;
         }
     } else if (ev->event_type == CYW43_EV_AUTH) {
         if (ev->status == 0) {
-            if ((self->wifi_join_state & WIFI_JOIN_STATE_KIND_MASK) == WIFI_JOIN_STATE_BADAUTH) {
+            uint32_t state = self->wifi_join_state & WIFI_JOIN_STATE_KIND_MASK;
+            if (state == WIFI_JOIN_STATE_BADAUTH || state == WIFI_JOIN_STATE_TOAUTH) {
                 // A good-auth follows a bad-auth, so change the join state back to active.
                 self->wifi_join_state = (self->wifi_join_state & ~WIFI_JOIN_STATE_KIND_MASK) | WIFI_JOIN_STATE_ACTIVE;
             }
             self->wifi_join_state |= WIFI_JOIN_STATE_AUTH;
         } else if (ev->status == 6) {
             // Unsolicited auth packet, ignore it
+        } else if (ev->status == 2) {
+            self->wifi_join_state = WIFI_JOIN_STATE_TOAUTH;
         } else {
             // Cannot authenticate
             self->wifi_join_state = WIFI_JOIN_STATE_BADAUTH;
@@ -610,6 +615,8 @@ int cyw43_wifi_link_status(cyw43_t *self, int itf) {
             return CYW43_LINK_NONET;
         } else if (s == WIFI_JOIN_STATE_BADAUTH) {
             return CYW43_LINK_BADAUTH;
+        } else if (s == WIFI_JOIN_STATE_TOAUTH) {
+            return CYW43_LINK_TOAUTH;
         } else {
             return CYW43_LINK_DOWN;
         }
