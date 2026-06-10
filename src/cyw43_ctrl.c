@@ -387,8 +387,11 @@ void cyw43_cb_process_async_event(void *cb_data, const cyw43_async_event_t *ev) 
                 self->wifi_join_state = (self->wifi_join_state & ~WIFI_JOIN_STATE_KIND_MASK) | WIFI_JOIN_STATE_ACTIVE;
             }
             self->wifi_join_state |= WIFI_JOIN_STATE_AUTH;
-        } else if (ev->status == 6) {
-            // Unsolicited auth packet, ignore it
+        } else if (ev->status == 6 || ev->status == 2 || ev->status== 5) {
+            // 2 = Timeout
+            // 5 = No ack
+            // 6 = Unsolicited auth packet
+            // Ignore it, lets keep trying
         } else {
             // Cannot authenticate
             self->wifi_join_state = WIFI_JOIN_STATE_BADAUTH;
