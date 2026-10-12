@@ -45,4 +45,10 @@ int cyw43_btbus_init(cyw43_ll_t *self);
 int cyw43_btbus_read(uint8_t *buf, uint32_t max_buf_size, uint32_t *size);
 int cyw43_btbus_write(uint8_t *buf, uint32_t size);
 
+#if CYW43_MULTI_INSTANCE
+// In place of cyw43_btbus_read and cyw43_btbus_write when CYW43_MULTI_INSTANCE is enabled
+int cyw43_btbus_read_instance(cyw43_ll_t *self, uint8_t *buf, uint32_t max_buf_size, uint32_t *size);
+int cyw43_btbus_write_instance(cyw43_ll_t *self, uint8_t *buf, uint32_t size);
+#endif
+
 #endif

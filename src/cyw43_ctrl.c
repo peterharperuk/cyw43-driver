@@ -79,20 +79,75 @@ static void cyw43_poll_func(void);
 static void cyw43_wifi_ap_init(cyw43_t *self);
 static void cyw43_wifi_ap_set_up(cyw43_t *self, bool up);
 
+// Whether an instance's bus is up. For cyw43_state this is kept in the global cyw43_poll, as before.
+// With CYW43_MULTI_INSTANCE, other instances keep it in their bus_up field.
+static bool cyw43_bus_is_up(cyw43_t *self) {
+    #if CYW43_MULTI_INSTANCE
+    if (self != &cyw43_state) {
+        return self->bus_up;
+    }
+    #else
+    (void)self;
+    #endif
+    return cyw43_poll != NULL;
+}
+
+static void cyw43_set_bus_up(cyw43_t *self, bool up) {
+    #if CYW43_MULTI_INSTANCE
+    self->bus_up = up;
+    if (self != &cyw43_state) {
+        return;
+    }
+    #else
+    (void)self;
+    #endif
+    cyw43_poll = up ? cyw43_poll_func : NULL;
+}
+
+// The port calls that depend on the instance.
+// For single instance, these are the calls the driver has always made.
+// For multi-instance, the port provides the _instance functions instead.
+#if CYW43_MULTI_INSTANCE
+#define SCHEDULE_POLL(self) cyw43_schedule_internal_poll_dispatch_instance(self)
+#define POST_POLL_HOOK(self) cyw43_post_poll_hook_instance(self);
+#define HAL_GET_MAC(self, idx, buf) cyw43_hal_get_mac_instance(self, idx, buf)
+#define BTBUS_READ(self, buf, max_size, len) cyw43_btbus_read_instance(&(self)->cyw43_ll, buf, max_size, len)
+#define BTBUS_WRITE(self, buf, len) cyw43_btbus_write_instance(&(self)->cyw43_ll, buf, len)
+#define BLUETOOTH_HCI_PROCESS(self) cyw43_bluetooth_hci_process_instance(self)
+#else
+#define SCHEDULE_POLL(self) cyw43_schedule_internal_poll_dispatch(cyw43_poll_func)
+#define POST_POLL_HOOK(self) CYW43_POST_POLL_HOOK
+#define HAL_GET_MAC(self, idx, buf) cyw43_hal_get_mac(idx, buf)
+#define BTBUS_READ(self, buf, max_size, len) cyw43_btbus_read(buf, max_size, len)
+#define BTBUS_WRITE(self, buf, len) cyw43_btbus_write(buf, len)
+#define BLUETOOTH_HCI_PROCESS(self) cyw43_bluetooth_hci_process()
+#endif
+
+uint32_t *cyw43_sleep_counter(cyw43_t *self) {
+    #if CYW43_MULTI_INSTANCE
+    if (self != &cyw43_state) {
+        return &self->sleep;
+    }
+    #else
+    (void)self;
+    #endif
+    return &cyw43_sleep;
+}
+
 /*******************************************************************************/
 // Initialisation and polling
 
 void cyw43_init(cyw43_t *self) {
     #if defined(CYW43_PIN_WL_HOST_WAKE)
-    cyw43_hal_pin_config(CYW43_PIN_WL_HOST_WAKE, CYW43_HAL_PIN_MODE_INPUT, CYW43_HAL_PIN_PULL_NONE, 0);
+    cyw43_hal_pin_config(CYW43_PIN(self, WL_HOST_WAKE), CYW43_HAL_PIN_MODE_INPUT, CYW43_HAL_PIN_PULL_NONE, 0);
     #elif defined(CYW43_PIN_WL_IRQ)
-    cyw43_hal_pin_config(CYW43_PIN_WL_IRQ, CYW43_HAL_PIN_MODE_INPUT, CYW43_HAL_PIN_PULL_NONE, 0);
+    cyw43_hal_pin_config(CYW43_PIN(self, WL_IRQ), CYW43_HAL_PIN_MODE_INPUT, CYW43_HAL_PIN_PULL_NONE, 0);
     #endif
-    cyw43_hal_pin_config(CYW43_PIN_WL_REG_ON, CYW43_HAL_PIN_MODE_OUTPUT, CYW43_HAL_PIN_PULL_NONE, 0);
-    cyw43_hal_pin_low(CYW43_PIN_WL_REG_ON);
+    cyw43_hal_pin_config(CYW43_PIN(self, WL_REG_ON), CYW43_HAL_PIN_MODE_OUTPUT, CYW43_HAL_PIN_PULL_NONE, 0);
+    cyw43_hal_pin_low(CYW43_PIN(self, WL_REG_ON));
     #ifdef CYW43_PIN_RFSW_VDD
-    cyw43_hal_pin_config(CYW43_PIN_RFSW_VDD, CYW43_HAL_PIN_MODE_OUTPUT, CYW43_HAL_PIN_PULL_NONE, 0); // RF-switch power
-    cyw43_hal_pin_low(CYW43_PIN_RFSW_VDD);
+    cyw43_hal_pin_config(CYW43_PIN(self, RFSW_VDD), CYW43_HAL_PIN_MODE_OUTPUT, CYW43_HAL_PIN_PULL_NONE, 0); // RF-switch power
+    cyw43_hal_pin_low(CYW43_PIN(self, RFSW_VDD));
     #endif
 
     cyw43_ll_init(&self->cyw43_ll, self);
@@ -107,7 +162,7 @@ void cyw43_init(cyw43_t *self) {
     self->ap_ssid_len = 0;
     self->ap_key_len = 0;
 
-    cyw43_poll = NULL;
+    cyw43_set_bus_up(self, false);
     self->initted = true;
 
     #if CYW43_ENABLE_BLUETOOTH
@@ -117,7 +172,7 @@ void cyw43_init(cyw43_t *self) {
 
 void cyw43_deinit(cyw43_t *self) {
     CYW43_THREAD_ENTER;
-    if (cyw43_poll == NULL) {
+    if (!cyw43_bus_is_up(self)) {
         CYW43_THREAD_EXIT;
         return;
     }
@@ -151,7 +206,7 @@ static int cyw43_ensure_up(cyw43_t *self) {
     #ifndef NDEBUG
     assert(cyw43_is_initialized(self)); // cyw43_init has not been called
     #endif
-    if (cyw43_poll != NULL) {
+    if (cyw43_bus_is_up(self)) {
         cyw43_ll_bus_sleep(&self->cyw43_ll, false);
         return 0;
     }
@@ -162,9 +217,9 @@ static int cyw43_ensure_up(cyw43_t *self) {
     self->itf_state = 0;
 
     // Reset and power up the WL chip
-    cyw43_hal_pin_low(CYW43_PIN_WL_REG_ON);
+    cyw43_hal_pin_low(CYW43_PIN(self, WL_REG_ON));
     cyw43_delay_ms(20);
-    cyw43_hal_pin_high(CYW43_PIN_WL_REG_ON);
+    cyw43_hal_pin_high(CYW43_PIN(self, WL_REG_ON));
     cyw43_delay_ms(50);
 
     #if !CYW43_USE_SPI
@@ -175,7 +230,7 @@ static int cyw43_ensure_up(cyw43_t *self) {
 
     // Initialise the low-level driver
     #if !CYW43_USE_OTP_MAC
-    cyw43_hal_get_mac(CYW43_HAL_MAC_WLAN0, self->mac);
+    HAL_GET_MAC(self, CYW43_HAL_MAC_WLAN0, self->mac);
 
     int ret = cyw43_ll_bus_init(&self->cyw43_ll, self->mac);
     #else
@@ -196,40 +251,43 @@ static int cyw43_ensure_up(cyw43_t *self) {
         self->mac[0], self->mac[1], self->mac[2], self->mac[3], self->mac[4], self->mac[5]);
 
     // Enable async events from low-level driver
-    cyw43_sleep = CYW43_SLEEP_MAX;
-    cyw43_poll = cyw43_poll_func;
+    *cyw43_sleep_counter(self) = CYW43_SLEEP_MAX;
+    cyw43_set_bus_up(self, true);
     #if USE_SDIOIT
     cyw43_sdio_set_irq(true);
     #elif !CYW43_USE_SPI
     // If CYW43_PIN_WL_HOST_WAKE has a falling edge, cyw43_poll (if it's not NULL) should be called.
-    cyw43_hal_pin_config_irq_falling(CYW43_PIN_WL_HOST_WAKE, true);
+    cyw43_hal_pin_config_irq_falling(CYW43_PIN(self, WL_HOST_WAKE), true);
     #endif
     #if defined(CYW43_PIN_WL_IRQ)
-    cyw43_hal_pin_config_irq_falling(CYW43_PIN_WL_IRQ, true);
+    cyw43_hal_pin_config_irq_falling(CYW43_PIN(self, WL_IRQ), true);
     #endif
 
     // Kick things off
-    cyw43_schedule_internal_poll_dispatch(cyw43_poll_func);
+    SCHEDULE_POLL(self);
 
     return ret;
 }
 
 // This function must always be executed at the level where CYW43_THREAD_ENTER is effectively active
 static void cyw43_poll_func(void) {
+    cyw43_poll_instance(&cyw43_state);
+}
+
+// This function must always be executed at the level where CYW43_THREAD_ENTER is effectively active
+void cyw43_poll_instance(cyw43_t *self) {
     CYW43_THREAD_LOCK_CHECK;
 
-    if (cyw43_poll == NULL) {
+    if (!cyw43_bus_is_up(self)) {
         // Poll scheduled during deinit, just ignore it
         return;
     }
 
     CYW43_STAT_INC(CYW43_RUN_COUNT);
 
-    cyw43_t *self = &cyw43_state;
-
     #if CYW43_ENABLE_BLUETOOTH
     if (self->bt_loaded && cyw43_ll_bt_has_work(&self->cyw43_ll)) {
-        cyw43_bluetooth_hci_process();
+        BLUETOOTH_HCI_PROCESS(self);
     }
     #endif
 
@@ -253,7 +311,7 @@ static void cyw43_poll_func(void) {
         self->wifi_join_state = WIFI_JOIN_STATE_ACTIVE;
     }
 
-    if (cyw43_sleep == 0) {
+    if (*cyw43_sleep_counter(self) == 0) {
         cyw43_ll_bus_sleep(&self->cyw43_ll, true);
         #if !USE_SDIOIT && !CYW43_USE_SPI
         cyw43_sdio_deinit(); // save power while WLAN bus sleeps
@@ -264,32 +322,30 @@ static void cyw43_poll_func(void) {
     cyw43_sdio_set_irq(true);
     #endif
 
-    #ifdef CYW43_POST_POLL_HOOK
-    CYW43_POST_POLL_HOOK
-    #endif
-
+    POST_POLL_HOOK(self)
 }
 
 /*******************************************************************************/
 // Callback interface to low-level driver
 
 int cyw43_cb_read_host_interrupt_pin(void *cb_data) {
-    (void)cb_data;
+    cyw43_t *self = cb_data;
+    (void)self;
     #if defined(CYW43_PIN_WL_HOST_WAKE)
     // SDIO or SPI mode with WL_HOST_WAKE pin.
-    return cyw43_hal_pin_read(CYW43_PIN_WL_HOST_WAKE);
+    return cyw43_hal_pin_read(CYW43_PIN(self, WL_HOST_WAKE));
     #elif defined(CYW43_PIN_WL_IRQ)
     // SPI mode with WL_IRQ pin (aliased to WL_SDIO_1).
-    return cyw43_hal_pin_read(CYW43_PIN_WL_IRQ);
+    return cyw43_hal_pin_read(CYW43_PIN(self, WL_IRQ));
     #else
     // SDIO mode with WL_SDIO_1 pin in interrupt mode.
-    return cyw43_hal_pin_read(CYW43_PIN_WL_SDIO_1);
+    return cyw43_hal_pin_read(CYW43_PIN(self, WL_SDIO_1));
     #endif
 }
 
 void cyw43_cb_ensure_awake(void *cb_data) {
-    (void)cb_data;
-    cyw43_sleep = CYW43_SLEEP_MAX;
+    cyw43_t *self = cb_data;
+    *cyw43_sleep_counter(self) = CYW43_SLEEP_MAX;
     #if !USE_SDIOIT && !CYW43_USE_SPI
     cyw43_sdio_reinit();
     #endif
@@ -482,7 +538,7 @@ static int cyw43_wifi_on(cyw43_t *self, uint32_t country) {
 
     #ifdef CYW43_PIN_RFSW_VDD
     // Turn the RF-switch on
-    cyw43_hal_pin_high(CYW43_PIN_RFSW_VDD);
+    cyw43_hal_pin_high(CYW43_PIN(self, RFSW_VDD));
     #endif
 
     ret = cyw43_ll_wifi_on(&self->cyw43_ll, country);
@@ -775,18 +831,21 @@ static int cyw43_ensure_bt_up(cyw43_t *self) {
 }
 
 // Just load firmware
+int cyw43_bluetooth_hci_init_instance(cyw43_t *self) {
+    return cyw43_ensure_bt_up(self);
+}
+
 int cyw43_bluetooth_hci_init(void) {
-    return cyw43_ensure_bt_up(&cyw43_state);
+    return cyw43_bluetooth_hci_init_instance(&cyw43_state);
 }
 
 // Read data
-int cyw43_bluetooth_hci_read(uint8_t *buf, uint32_t max_size, uint32_t *len) {
-    cyw43_t *self = &cyw43_state;
+int cyw43_bluetooth_hci_read_instance(cyw43_t *self, uint8_t *buf, uint32_t max_size, uint32_t *len) {
     int ret = cyw43_ensure_bt_up(self);
     if (ret) {
         return ret;
     }
-    ret = cyw43_btbus_read(buf, max_size, len);
+    ret = BTBUS_READ(self, buf, max_size, len);
     if (ret) {
         CYW43_PRINTF("cyw43_bluetooth_hci_read: failed to read from shared bus\n");
         return ret;
@@ -794,18 +853,25 @@ int cyw43_bluetooth_hci_read(uint8_t *buf, uint32_t max_size, uint32_t *len) {
     return 0;
 }
 
+int cyw43_bluetooth_hci_read(uint8_t *buf, uint32_t max_size, uint32_t *len) {
+    return cyw43_bluetooth_hci_read_instance(&cyw43_state, buf, max_size, len);
+}
+
 // Write data, buffer needs to include space for a 4 byte header and include this in len
-int cyw43_bluetooth_hci_write(uint8_t *buf, size_t len) {
-    cyw43_t *self = &cyw43_state;
+int cyw43_bluetooth_hci_write_instance(cyw43_t *self, uint8_t *buf, size_t len) {
     int ret = cyw43_ensure_bt_up(self);
     if (ret) {
         return ret;
     }
-    ret = cyw43_btbus_write(buf, len);
+    ret = BTBUS_WRITE(self, buf, len);
     if (ret) {
         CYW43_PRINTF("cyw43_bluetooth_hci_write: failed to write to shared bus\n");
         return ret;
     }
     return 0;
+}
+
+int cyw43_bluetooth_hci_write(uint8_t *buf, size_t len) {
+    return cyw43_bluetooth_hci_write_instance(&cyw43_state, buf, len);
 }
 #endif

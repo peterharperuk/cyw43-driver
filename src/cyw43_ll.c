@@ -1442,9 +1442,17 @@ int cyw43_ll_bus_init(cyw43_ll_t *self_in, const uint8_t *mac) {
             break;
         }
 
+        #if CYW43_MULTI_INSTANCE
+        cyw43_spi_gpio_setup_instance(self);
+        #else
         cyw43_spi_gpio_setup();
+        #endif
         CYW43_EVENT_POLL_HOOK;
+        #if CYW43_MULTI_INSTANCE
+        cyw43_spi_reset_instance(self);
+        #else
         cyw43_spi_reset();
+        #endif
         CYW43_EVENT_POLL_HOOK;
 
         // Check test register can be read

@@ -148,11 +148,74 @@ typedef struct _cyw43_t {
     #if CYW43_ENABLE_BLUETOOTH
     bool bt_loaded;
     #endif
+
+    #if CYW43_MULTI_INSTANCE
+    // Whether the bus is up. For cyw43_state this is kept in cyw43_poll instead
+    bool bus_up;
+    // The sleep countdown. For cyw43_state this is kept in cyw43_sleep instead
+    uint32_t sleep;
+    // For the port, to find this instance's pins and bus. Set before cyw43_init()
+    void *port_data;
+    #endif
 } cyw43_t;
 
 extern cyw43_t cyw43_state;
 extern void (*cyw43_poll)(void);
 extern uint32_t cyw43_sleep;
+
+/*!
+ * \brief Poll an instance
+ *
+ * Does the work cyw43_poll does for the default instance, for any instance. A port that supports
+ * more than one instance (CYW43_MULTI_INSTANCE) calls this when
+ * cyw43_schedule_internal_poll_dispatch_instance asks it to, or when that instance's host wake
+ * interrupt fires. It does nothing if the instance's
+ * bus is not up.
+ *
+ * Must be called at the level where CYW43_THREAD_ENTER is effectively active.
+ *
+ * \param self the driver state object
+ */
+void cyw43_poll_instance(cyw43_t *self);
+
+/*!
+ * \brief The sleep countdown for an instance
+ *
+ * The port decrements this as cyw43_sleep is decremented, and polls the instance when it reaches
+ * zero so that the bus can sleep. For the default instance this is &cyw43_sleep.
+ *
+ * \param self the driver state object
+ * \return the instance's sleep countdown
+ */
+uint32_t *cyw43_sleep_counter(cyw43_t *self);
+
+#if CYW43_MULTI_INSTANCE
+// Provided by the port when CYW43_MULTI_INSTANCE is enabled. See cyw43_config.h.
+
+/*!
+ * \brief Arrange for cyw43_poll_instance(self) to be called soon
+ *
+ * Called at the level where CYW43_THREAD_ENTER is effectively active. What
+ * cyw43_schedule_internal_poll_dispatch() is for a single instance.
+ */
+void cyw43_schedule_internal_poll_dispatch_instance(cyw43_t *self);
+
+/*!
+ * \brief Called at the end of each poll of an instance
+ *
+ * What CYW43_POST_POLL_HOOK is for a single instance.
+ */
+void cyw43_post_poll_hook_instance(cyw43_t *self);
+
+#if !CYW43_USE_OTP_MAC
+/*!
+ * \brief Get an instance's MAC address
+ *
+ * What cyw43_hal_get_mac() is for a single instance.
+ */
+void cyw43_hal_get_mac_instance(cyw43_t *self, int idx, uint8_t buf[6]);
+#endif
+#endif
 
 /*!
  * \brief Initialize the driver
@@ -683,6 +746,51 @@ int cyw43_bluetooth_hci_write(uint8_t *buf, size_t len);
  * \brief Callback for the Bluetooth HCI layer to do processing
  */
 void cyw43_bluetooth_hci_process(void);
+
+/*!
+ * \brief Initialise the Bluetooth HCI layer of an instance
+ *
+ * As cyw43_bluetooth_hci_init, which is this for cyw43_state.
+ *
+ * \param self the driver state object
+ * \return zero on success
+ */
+int cyw43_bluetooth_hci_init_instance(cyw43_t *self);
+
+/*!
+ * \brief Read data from the Bluetooth HCI layer of an instance
+ *
+ * As cyw43_bluetooth_hci_read, which is this for cyw43_state.
+ *
+ * \param self the driver state object
+ * \param buf Buffer to be filled with hci data
+ * \param max_size The maximum size of the buffer
+ * \param len Returns the length of the data in the buffer including an initial 4 byte header. The last byte of the header is the packet type
+ * \return zero on success
+ */
+int cyw43_bluetooth_hci_read_instance(cyw43_t *self, uint8_t *buf, uint32_t max_size, uint32_t *len);
+
+/*!
+ * \brief Write data to the Bluetooth HCI layer of an instance
+ *
+ * As cyw43_bluetooth_hci_write, which is this for cyw43_state.
+ *
+ * \param self the driver state object
+ * \param buf Data to write
+ * \param len Size of data to send. Must include a 4 byte header. The last byte of the header should be the packet type
+ * \return zero on success
+ */
+int cyw43_bluetooth_hci_write_instance(cyw43_t *self, uint8_t *buf, size_t len);
+
+#if CYW43_MULTI_INSTANCE
+/*!
+ * \brief Callback for the Bluetooth HCI layer of an instance to do processing
+ *
+ * Provided by the port when CYW43_MULTI_INSTANCE is enabled, in place of
+ * cyw43_bluetooth_hci_process.
+ */
+void cyw43_bluetooth_hci_process_instance(cyw43_t *self);
+#endif
 
 #endif // CYW43_ENABLE_BLUETOOTH
 

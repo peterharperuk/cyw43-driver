@@ -88,6 +88,52 @@
 #define CYW43_ENABLE_BLUETOOTH_OVER_UART (0)
 #endif
 
+// Multiple instance configuration.
+
+// Whether more than one cyw43_t may be in use at once, each driving its own
+// chip. When disabled (the default) the driver behaves exactly as it always
+// has: every instance shares the global pin configuration, cyw43_poll and
+// cyw43_sleep, and in practice the only instance is cyw43_state.
+//
+// When enabled, cyw43_state remains the default instance and keeps the global
+// cyw43_poll and cyw43_sleep, so existing code using it is unaffected. Other
+// instances keep that state in the cyw43_t itself. Wherever the driver would
+// otherwise reach global port state, it instead calls a port function that
+// takes the instance, and the port must provide:
+// - cyw43_hal_pin_for_instance(self, index), a function or macro giving the
+//   pin to use for CYW43_PIN_INDEX_<name>, for each pin the port defines as
+//   CYW43_PIN_<name>. The port defines the cyw43_pin_index_t enumeration, as
+//   for CYW43_PIN_WL_DYNAMIC.
+// - cyw43_spi_gpio_setup_instance() and cyw43_spi_reset_instance(), see cyw43_spi.h
+// - cyw43_schedule_internal_poll_dispatch_instance() and
+//   cyw43_post_poll_hook_instance(), see cyw43.h
+// - cyw43_hal_get_mac_instance(), if CYW43_USE_OTP_MAC is not enabled
+// - with CYW43_ENABLE_BLUETOOTH, cyw43_btbus_read_instance() and
+//   cyw43_btbus_write_instance() (see cyw43_btbus.h), and
+//   cyw43_bluetooth_hci_process_instance() (see cyw43.h)
+// The port finds an instance's pins and bus through cyw43_t.port_data, which it
+// sets before cyw43_init(). Only the SPI transport is supported, and Bluetooth
+// only over the shared bus.
+#ifndef CYW43_MULTI_INSTANCE
+#define CYW43_MULTI_INSTANCE (0)
+#endif
+
+#if CYW43_MULTI_INSTANCE && !CYW43_USE_SPI
+#error "CYW43_MULTI_INSTANCE requires CYW43_USE_SPI"
+#endif
+
+#if CYW43_MULTI_INSTANCE && CYW43_ENABLE_BLUETOOTH_OVER_UART
+#error "CYW43_MULTI_INSTANCE does not support CYW43_ENABLE_BLUETOOTH_OVER_UART"
+#endif
+
+// The pin CYW43_PIN_<name> for an instance. Whether a pin exists at all is
+// still decided by whether the port defines CYW43_PIN_<name>.
+#if CYW43_MULTI_INSTANCE
+#define CYW43_PIN(self, name) cyw43_hal_pin_for_instance(self, CYW43_PIN_INDEX_##name)
+#else
+#define CYW43_PIN(self, name) CYW43_PIN_##name
+#endif
+
 // This include should define:
 // - CYW43_WIFI_FW_LEN
 // - CYW43_CLM_LEN

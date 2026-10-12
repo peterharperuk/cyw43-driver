@@ -127,6 +127,12 @@ int cyw43_spi_init(cyw43_int_t *self);
 void cyw43_spi_deinit(cyw43_int_t *self);
 void cyw43_spi_gpio_setup(void);
 void cyw43_spi_reset(void);
+#if CYW43_MULTI_INSTANCE
+// In place of cyw43_spi_gpio_setup and cyw43_spi_reset when CYW43_MULTI_INSTANCE is enabled.
+// self->cb_data is the owning cyw43_t.
+void cyw43_spi_gpio_setup_instance(cyw43_int_t *self);
+void cyw43_spi_reset_instance(cyw43_int_t *self);
+#endif
 void cyw43_spi_set_polarity(cyw43_int_t *self, int pol);
 int cyw43_spi_transfer(cyw43_int_t *self, const uint8_t *tx, size_t tx_length, uint8_t *rx, size_t rx_length);
 
